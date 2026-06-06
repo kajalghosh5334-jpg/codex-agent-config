@@ -49,7 +49,7 @@ description: |
   3. context.md 项目概述
      → 作为 Goal 的补充上下文
 
-初始化后写入 progress.md ## Task State Machine：
+初始化后静默写入 progress.md ## Task State Machine（Memory Diff [静默]）：
 ```
 
 ```yaml
@@ -103,8 +103,7 @@ Stage Deliverables 不受影响，继续正常使用
 
 写入触发：
 ```
-风险等级=高 → 执行前立即写入 bugs.md（格式见规则十一）
-写入时在 Memory Diff 中记录：bugs.md ADD P0: [一句话描述]
+风险等级=高 → 执行前立即写入 bugs.md（格式见规则十一），Memory Diff [静默]
 ```
 
 ---
@@ -122,7 +121,8 @@ Lines:     <= 200  # 单次新增/修改行数
 - 说明为什么会超出
 - 等待用户确认后再继续
 - 禁止以「顺便」「一起」为由扩展范围
-- 确认后在 Memory Diff 追加：`context.md PATCH: key_decisions += "[预算确认] 超出原因 · 用户确认：是"`
+- 确认后写入 Memory Diff [静默]：
+  `context.md PATCH: key_decisions += "[预算确认] 超出原因 · 用户确认：是"`
 
 ---
 
@@ -168,16 +168,15 @@ Completion Criteria: # 完成判定标准
 不执行。
 ```
 
-Additional Findings 同步写入 Memory Diff：
+Additional Findings 写入 Memory Diff [静默]：
 ```
-FILE: context.md
-PATCH:
+context.md PATCH:
   topic_stack.active.open_threads += "[AF] 发现：[内容] · 建议：[处理建议]"
 ```
 
 ---
 
-## 规则七：执行后必须输出 Verification + 触发 Memory Diff
+## 规则七：执行后必须输出 Verification + 写入 Memory Diff
 
 ```
 ✅ Verification
@@ -187,28 +186,29 @@ PATCH:
 是否超出需求：[是/否] + 如果是，说明超出了什么
 ```
 
-Verification 输出后，必须在回复末尾追加 Memory Diff：
+Verification 完成后，按以下逻辑写入 Memory Diff（全部 [静默]）：
 
 ```
 新增风险 ≠ "无"
-  → Memory Diff: bugs.md ADD P1: [风险内容]
-  → Memory Diff: context.md open_threads += "[AF] 发现：[风险内容] · 建议：[处理建议]"
+  → bugs.md PATCH: ADD P1: [风险内容]   [静默]
+  → context.md PATCH: open_threads += "[AF] 发现：[风险内容] · 建议：[处理建议]"   [静默]
 
 目标完成 = 是
-  → Memory Diff: progress.md Task State Machine Completed += [子任务]
-  → Memory Diff: progress.md Task State Machine Pending -= [已完成项]
-  → Memory Diff: progress.md Task State Machine Current Step = [下一项]
+  → progress.md PATCH: Task State Machine Completed += [子任务]   [静默]
+  → progress.md PATCH: Task State Machine Pending -= [已完成项]   [静默]
+  → progress.md PATCH: Task State Machine Current Step = [下一项]   [静默]
 
 是否超出需求 = 是
-  → Memory Diff: progress.md Task State Machine Risks += [超出项]
-  → Memory Diff: context.md key_decisions += "[预算确认] 超出原因 · 用户确认：是"
+  → progress.md PATCH: Task State Machine Risks += [超出项]   [静默]
+  → context.md PATCH: key_decisions += "[预算确认] 超出原因 · 用户确认：是"   [静默]
 ```
 
 ---
 
 ## 规则八：复杂工程任务的完整输出模板
 
-当任务涉及 2 个以上模块 或 修改预算 L2 以上时，输出必须按此结构：
+**触发条件：任务涉及 2 个以上模块 或 修改预算超出 L1（Files > 3 或 Lines > 200）时，输出必须按此结构。**
+**is_engineering = true 时所有 execute 任务均以此模板为准（含低复杂度任务），覆盖 output-engine Q5 的 execute 结构定义。**
 
 ```markdown
 # Current Goal
@@ -267,12 +267,12 @@ Pending:    # 待处理的工作
 ## 规则十一：bugs.md 写入规则
 
 ```
-写入时机（任一触发即写入 Memory Diff）：
+写入时机（任一触发即写入 Memory Diff [静默]）：
   ✓ Impact Analysis 风险等级=高（规则三）
   ✓ Verification 新增风险 ≠ "无"（规则七）
   ✓ 用户或 Agent 在执行过程中明确识别到新风险/开放问题
 
-条目格式（写入 Memory Diff）：
+条目格式（Memory Diff [静默] 写回 bugs.md）：
   ADD [P级别]: [一句话标题]
     来源：[Impact Analysis / Verification / Agent发现 / 用户反馈]
     内容：[风险/问题的具体描述]
@@ -287,8 +287,8 @@ P级别映射：
   Verification 新增风险         → P1
   执行过程中发现的问题           → P2
 
-风险解决后：
-  Memory Diff: bugs.md UPDATE [条目]: 状态=已解决 · 解决方式=[XX] · 解决时间=[YYYY-MM-DD]
+风险解决后（Memory Diff [静默]）：
+  bugs.md UPDATE [条目]: 状态=已解决 · 解决方式=[XX] · 解决时间=[YYYY-MM-DD]
   不删除条目，保留追溯链
 ```
 
@@ -296,20 +296,21 @@ P级别映射：
 
 ## 规则十二：Stage Deliverables 动态生成规则
 
-**触发时机**：Q1 Step 3 阶段推进时，或 Q1 识别到新 scene × stage 组合时（## Stage Deliverables 为空时触发一次，阶段内不重复生成）。
+**触发时机**：由 output-engine Q1 Step 3 显式调用（情况 A：## Stage Deliverables 为空时）。阶段内不重复生成。
 
 **生成逻辑（AI 推理，不查表）**：
 
 ```
 输入（AI 自主读取）：
-  - Q1 识别的 scene（什么领域）
-  - Q1 识别的 stage（什么阶段）
+  - Q1 识别的 scene_domain（什么领域）
+  - Q1 识别的 task_type（什么类型任务）
+  - Q1 识别的 clarity（方向清晰度）
   - context.md 项目概述（做什么）
   - context.md 技术栈（用什么）
   - topic_stack.key_decisions（已经定了什么）
   - 用户当前输入内容（想做什么）
 
-推理输出（写入 Memory Diff → progress.md Stage Deliverables）：
+推理输出（Memory Diff [静默] 写回 progress.md Stage Deliverables）：
 
   P0（必须完成，否则不允许进入下一阶段）
     □ [物料1] — [一句话说明产出标准]
@@ -322,7 +323,7 @@ P级别映射：
 **生成后向用户输出**：
 
 ```
-📋 进入阶段：[scene] × [stage]
+📋 进入阶段：[scene_domain] · [task_type] · clarity=[clarity]
 
 本阶段需要完成以下产出物料：
 
@@ -336,10 +337,10 @@ P级别映射：
 当前输出已锁定在本阶段，完成 P0 物料后自动引导进入下一阶段。
 ```
 
-**状态更新**：
-
+**P0 物料完成判定**：
 ```
-用户每完成一项物料 → Memory Diff: progress.md Stage Deliverables[物料名].状态: □ → ✓
+AI 已输出该物料的完整内容（如架构文档、决策记录），且用户无追问或明确确认
+  → Memory Diff [静默]：progress.md Stage Deliverables[物料名].状态: □ → ✓
 ```
 
 ---
@@ -351,18 +352,18 @@ P级别映射：
 **触发后动作**：
 
 ```
-Step 1：Memory Diff 追加
-  progress.md Stage History[当前阶段].completed_at = 第N轮
+Step 1：Memory Diff [静默] 写回
+  progress.md Stage History[当前阶段].completed_at = 第N轮（当前对话轮次编号）
 
 Step 2：归档当前阶段产出
-  将 Stage Deliverables 内容复制至 archive/stage_[stage]_[date].md
-  Memory Diff: progress.md Stage Deliverables = 清空（给下一阶段用）
+  将 Stage Deliverables 内容写入 archive/stage_[scene_domain]_[task_type]_[date].md
+  Memory Diff [静默]：progress.md Stage Deliverables = 清空（给下一阶段用）
 
 Step 3：向用户输出阶段完成通知 + 下一阶段引导
 
 输出格式：
 
-  ✅ 阶段 [scene] × [stage] 完成
+  ✅ 阶段 [scene_domain] · [task_type] 完成
 
   已完成产出：
     ✓ [物料1]
@@ -377,8 +378,8 @@ Step 3：向用户输出阶段完成通知 + 下一阶段引导
   你想进入哪个方向？
 
 Step 4：等待用户选择
-  用户选择后 → Q1 重新识别 scene × stage
-  → 生成新阶段清单，写入 Memory Diff → progress.md Stage Deliverables
+  用户选择后 → Q1 重新识别 scene_domain / task_type / clarity
+  → 调用规则十二生成新阶段清单，Memory Diff [静默] 写回 progress.md Stage Deliverables
   → 进入新的阶段循环
 ```
 
@@ -386,6 +387,7 @@ Step 4：等待用户选择
 
 ```
 用户说「跳过阶段」→ 强制解锁
-Memory Diff: context.md key_decisions += "[门禁覆盖] 从[scene_A]×[stage_A]跳至[scene_B]×[stage_B] · 用户确认：是 · 风险自担"
+Memory Diff [静默]：
+  context.md PATCH: key_decisions += "[门禁覆盖] 从[scene_A·task_A]跳至[scene_B·task_B] · 用户确认：是 · 风险自担"
 然后正常进入用户指定的下一阶段。
 ```

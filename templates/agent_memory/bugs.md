@@ -20,16 +20,18 @@
 
 ---
 
-## 写入触发规则（由 output-engine 强制执行）
+## 写入触发规则（由 engineering-mode 强制执行，所有写入通过 Memory Diff [静默] 写回）
 
 | 触发场景 | 来源 | 默认优先级 |
 |---|---|---|
-| Verification「新增风险」有内容 | 规则七 Memory 更新 | 按实际等级 |
-| Impact Analysis 风险等级 = 高，且执行中未解除 | 规则一 Impact Analysis | P1 |
+| Verification「新增风险」有内容 | engineering-mode 规则七 | P1 |
+| Impact Analysis 风险等级 = 高 | engineering-mode 规则三 | P0 |
+| 用户或 Agent 明确识别到新风险 | engineering-mode 规则十一 | P2 |
 | 用户手动标记 | - | 由用户指定 |
 
 ## 与 progress.md 的关系
 
-- `progress.md` 的 Risks 字段记录**当前任务正在进行中**的风险，实时跟踪
+- `progress.md` 的 Task State Machine Risks 字段记录**当前任务正在进行中**的风险，实时跟踪
 - `bugs.md` 记录**已确认、待处理或已解决**的风险，是持久化清单
 - Risks 中的条目升级为已知风险后，同步写入 bugs.md
+- bugs.md 新增风险同步写入 context.md topic_stack.active.open_threads（前缀 [AF]），风险解决后从 open_threads 移除
