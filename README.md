@@ -86,3 +86,21 @@ Step 4 · 路由 → output-engine 五问流程
 - 这套配置是为 Codex CLI 设计的，部分 skill 引用需要你本地已安装对应 skill
 - `skill_index.md` 中的 skill 列表是我个人的配置，你需要根据 `~/.codex/skills/` 实际内容调整
 - 首次使用请确保 `agent_memory/` 目录在项目根目录存在（AGENTS.md 会自动提示创建）
+
+---
+
+## 环境依赖
+
+### VS Code Mermaid 插件（视觉渲染必备）
+V 通道的 Mermaid 图表输出需要在 VS Code 中安装 Mermaid 预览插件才能正常渲染：
+
+推荐的 VS Code 插件：
+- [Markdown Preview Mermaid Support](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid) — 让 VS Code 内置 Markdown 预览支持 Mermaid
+- 或 [Mermaid Editor](https://marketplace.visualstudio.com/items?itemName=tomoyukim.vscode-mermaid-editor) — 专用 Mermaid 编辑器
+
+安装方式：
+```
+code --install-extension bierner.markdown-mermaid
+```
+
+如果不安装，Mermaid 代码块将显示为原始文本，无法渲染为图表。
