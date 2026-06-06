@@ -18,9 +18,20 @@
      → 不包含 → 首次对话，继续；首次回复末尾提示：「⚠️ 未检测到 Memory 注入，请运行注入脚本后重新开始」
 
 □ Step 3：是否过了阶段锁定检查？
-     → progress.md 的 ## Stage Deliverables 中是否存在 P0 状态=□ 的条目？
-     → 存在 且 用户试图跨阶段 → 输出门禁拦截，Checklist 结束
-     → 不存在 或 用户在当前阶段内 → 继续
+     → 【每轮强制重判】先重新执行 Q1 Step 2 场景识别（scene_domain / task_type / clarity），
+       与 topic_stack.active 当前值比对：
+         一致 → 静默继续
+         差异在 scene_domain → 走 topic-memory 话题判定
+         差异在 task_type 或 clarity（task_type 不变）→ 显示：
+           📍 阶段变更：[旧值] → [新值]，继承 key_decisions 和 open_threads
+           触发 output-engine Q1 Step 3 阶段推进逻辑，Memory Diff [静默] 写回
+         差异仅在 clarity（task_type 不变）→ 静默更新 clarity，Memory Diff [静默] 写回
+     → 比对完成后：
+       → progress.md 的 ## Stage Deliverables 是否为空？
+         → 是 → 触发阶段路线图生成，等待用户确认，Checklist 结束
+         → 否 → 是否存在 P0 状态=□ 的条目 且 用户试图跨阶段？
+           → 是 → 输出门禁拦截，Checklist 结束
+           → 否 → 继续
 
 □ Step 4：交给 output-engine 执行
      → 进入五问流程
@@ -106,6 +117,7 @@ PATCH:
   topic_stack.active.scene_domain: [Q1 识别值]
   topic_stack.active.task_type: [Q1 识别值]
   topic_stack.active.clarity: [Q1 识别值]
+  topic_stack.active.stage_map: [5阶段路线图，见「阶段路线图生成」节]
 ```
 此后同项目判断依赖此处写入的项目概述和技术栈。
 
@@ -119,6 +131,109 @@ bugs.md 写入时机（由 output-engine 规则触发，此处为索引）：
   Verification 新增风险 ≠ "无"  → 执行后写入（output-engine 规则七 / 规则十一）
   用户或 Agent 明确识别到新风险/开放问题 → 即时写入
 写入时必须输出标注：更新Memory · bugs.md：[操作摘要]
+
+### 阶段路线图生成（首次进入项目时）
+
+**触发条件**：progress.md 中 ## Stage Deliverables 为空（即尚未生成过阶段路线图）。
+
+**核心逻辑**：场景推断不只识别"当前在哪"，而是从当前阶段往后延伸，生成一条完整的阶段路线图（stage map）。之后按 map 逐阶段推进，门禁守每个阶段的边界。
+
+**执行流程**：
+
+1. **场景推断 + 路线图生成**：
+   - 由 output-engine Q1 + Q2.5 完成场景推断，写入 topic_stack.active（scene_domain / task_type / clarity / progress / is_engineering / biz_scene）
+   - **基于推断结果，一次性生成 5 个阶段的路线图**：
+     - 阶段 1 = 当前所处阶段
+     - 阶段 2-5 = 从当前阶段自然延伸的后续阶段
+   - 路线图写入 topic_stack.active.stage_map，格式：
+     ```
+     stage_map:
+       - stage: [阶段1名称]        # 当前所处阶段
+         is_current: true
+         goal: [一句话目标]
+         P0:
+           - [必须完成的产出1]
+           - [必须完成的产出2]
+         P1:
+           - [推荐但不强制的产出1]
+       - stage: [阶段2名称]
+         is_current: false
+         goal: [一句话目标]
+         P0:
+           - [产出1]
+           - [产出2]
+         P1:
+           - [产出1]
+       - stage: [阶段3名称]
+         ...
+       - stage: [阶段4名称]
+         ...
+       - stage: [阶段5名称]
+         ...
+     ```
+   - 推断字段 + stage_map 在阶段列表输出前写入 topic_stack.active
+
+2. **输出推断结果 + 路线图，供用户一并确认**：
+   ```
+   📍 场景识别
+   · 领域：[scene_domain]
+   · 类型：[task_type]
+   · 清晰度：[clarity] · 进度：[progress]
+   · 工程模式：[is_engineering]
+   · 业务场景：[user_role] · [stage]
+
+   ────────────────────────────────
+
+   🗺️ 阶段路线图
+
+   ▶ 阶段 1：[名称] ← 当前
+     目标：[一句话目标]
+     P0：□ [产出1] / □ [产出2]
+     P1：□ [产出1]
+
+     阶段 2：[名称]
+     目标：[一句话目标]
+     P0：□ [产出1] / □ [产出2]
+
+     阶段 3：[名称]
+     目标：[一句话目标]
+     P0：□ [产出1] / □ [产出2]
+
+     阶段 4：[名称]
+     目标：[一句话目标]
+     P0：□ [产出1] / □ [产出2]
+
+     阶段 5：[名称]
+     目标：[一句话目标]
+     P0：□ [产出1] / □ [产出2]
+
+   ────────────────────────────────
+   以上场景识别和阶段路线图是否符合预期？
+   · 确认 → 回复「确认」，从阶段1开始执行
+   · 调整场景 → 指出识别错误的字段，我将修正后重新生成路线图
+   · 调整路线图 → 指出需要修改的阶段/物料，我将重新生成
+   ────────────────────────────────
+   ```
+3. **确认前禁止行为**：
+   - 不进入任何阶段的执行
+   - 不触发 output-engine 五问流程的后续步骤（Q3-Q5）
+   - 不写入 progress.md 的 Stage Deliverables
+   - 推断字段和 stage_map 已写入 topic_stack.active（供生成路线图使用），但用户纠正时须立即修正
+4. **用户确认后**：
+   - 从 stage_map 展开写入 progress.md 的 ## Stage Deliverables 部分（只展开阶段1的物料为可追踪状态，后续阶段物料待进入时再展开）
+   - 进入阶段 1 执行
+   - 门禁机制自此生效
+5. **用户纠正后**：
+   - 修正 topic_stack.active 中对应字段
+   - 重新生成路线图
+   - 再次输出供确认
+
+**路线图执行规则**：
+- 每完成一个阶段的 P0 → 门禁通过 → 自动推进到路线图的下一阶段 → 展开该阶段的物料清单 → 继续执行
+- 路线图所有阶段完成 → 项目完成，输出总结
+- 路线图执行过程中如果场景发生重大变化（scene_domain 改变），重新生成路线图
+
+**已有路线图时**：progress.md 中 ## Stage Deliverables 非空 → 跳过生成，直接读取现有阶段，按门禁逻辑推进。
 
 ### 进度推动
 每阶段完成后主动列出 1-2 个建议下一步。
@@ -151,13 +266,24 @@ Step 2 · 读 Memory
     否 → 跳过，进入 Step 3（首次回复后按「首次写入规则」创建目录和文件）
 
 Step 3 · 阶段锁定检查
-  读取 progress.md 的 ## Stage Deliverables 部分成功 且 存在 P0 状态=□ 的条目
-    → 用户当前输入涉及下一阶段内容（如：当前在立项期，用户说"开始写代码"）
-       → ⚠️ 阶段门禁拦截，输出门禁提示（格式见 output-engine），不进入 Step 4
-    → 用户当前输入在当前阶段范围内
-       → 继续 Step 4
-  读取 progress.md 失败 或 ## Stage Deliverables 为空/无 P0 未完成项
-    → 继续 Step 4
+  【每轮强制重判】先重新执行 Q1 Step 2 场景识别（scene_domain / task_type / clarity），
+  与 topic_stack.active 当前值比对：
+    一致 → 静默继续
+    差异在 scene_domain → 走 topic-memory 话题判定（阶段推进 or 真切换）
+    差异在 task_type 或 clarity（task_type 改变）→ 显示：
+      📍 阶段变更：[旧 task_type/clarity] → [新 task_type/clarity]
+      继承当前 key_decisions 和 open_threads，触发 output-engine Q1 Step 3 阶段推进逻辑
+      Memory Diff [静默] 写回 topic_stack.active
+    差异仅在 clarity（task_type 不变）→ 静默更新 clarity，Memory Diff [静默] 写回
+  比对完成后：
+    读取 progress.md 的 ## Stage Deliverables 部分
+      → 为空（首次进入项目）→ 触发「阶段路线图生成」，输出推断结果+路线图供用户确认，不进入 Step 4
+      → 非空 且 存在 P0 状态=□ 的条目
+         → 用户当前输入涉及下一阶段内容（如：当前在立项期，用户说"开始写代码"）
+            → ⚠️ 阶段门禁拦截，输出门禁提示，不进入 Step 4
+         → 用户当前输入在当前阶段范围内
+            → 继续 Step 4
+      → 非空 且 无 P0 未完成项 → 继续 Step 4
 
 Step 4 · 路由分发
   → 交给 skill: output-engine 执行五问流程
