@@ -2,10 +2,31 @@
 
 ---
 
-## ⚡ 每轮必须执行路由，不得裸奔
+## ⚡ 每轮回复前必须完成的强制 Checklist（不得跳过，不得简化）
 
-> 完整四步逻辑见「二、强制入口」。
-> **裸奔定义：未经 Step1 快检直接输出实质内容。禁止。**
+```
+每次收到用户输入，在输出任何内容之前，先在内心完成以下四步：
+
+□ Step 1：是否过了快检？
+     → 判断是否为简单问题（闲聊 / 单概念查询 / 用户说"随便问下"）
+     → 是 → 直接回答，Checklist 结束
+     → 否 → 继续
+
+□ Step 2：是否读了 Memory？
+     → System Prompt 中是否包含 [MEMORY: context.md] 等标记块？
+     → 包含 → 已读，继续
+     → 不包含 → 首次对话，继续；首次回复末尾提示：「⚠️ 未检测到 Memory 注入，请运行注入脚本后重新开始」
+
+□ Step 3：是否过了阶段锁定检查？
+     → progress.md 的 ## Stage Deliverables 中是否存在 P0 状态=□ 的条目？
+     → 存在 且 用户试图跨阶段 → 输出门禁拦截，Checklist 结束
+     → 不存在 或 用户在当前阶段内 → 继续
+
+□ Step 4：交给 output-engine 执行
+     → 进入五问流程
+```
+
+> **裸奔定义：未经以上 Checklist 直接输出实质内容。禁止。**
 
 ---
 
@@ -33,9 +54,7 @@
 
 ### 内存变更 Diff 输出格式
 
-**「静默」的统一定义：不向用户展示，但必须写入回复末尾的 Memory Diff 块，供脚本解析写回。**
-
-每次涉及 Memory 更新时，在回复末尾统一输出以下格式。Diff 块始终出现在回复最末尾；其中标注 `[静默]` 的条目由脚本写回，用户界面折叠不展示；未标注 `[静默]` 的条目（如话题切换标注）正常展示。
+每次涉及 Memory 更新时，在回复末尾统一输出以下格式（替代原先的「更新Memory · 文件名：摘要」散装标注）：
 
 ```
 ---
@@ -43,15 +62,15 @@
 
 FILE: context.md
 PATCH:
-  topic_stack.active.key_decisions += "选了微服务拆分——原因：团队规模已超10人"   [静默]
+  topic_stack.active.key_decisions += "选了微服务拆分——原因：团队规模已超10人"
 
 FILE: progress.md
 PATCH:
-  Stage Deliverables[竞品分析报告].状态: □ → ✓   [静默]
+  Stage Deliverables[竞品分析报告].状态: □ → ✓
 
 FILE: bugs.md
 PATCH:
-  ADD P1: 支付回调超时 · 触发条件：回调延迟>5s · 来源：topic_001   [静默]
+  ADD P1: 支付回调超时 · 触发条件：回调延迟>5s · 来源：topic_001
 ---
 ```
 
@@ -77,16 +96,16 @@ agent_memory/
 过长时压缩摘要归档至 archive/。
 
 **context.md 首次写入规则：**
-首次对话完成后（Step 2 读取时 context.md 为空），在回复末尾的 Memory Diff 中静默写回以下内容：
+首次对话完成后（Step 2 读取时 context.md 为空），在回复末尾的 Memory Diff 中写回以下内容：
 ```
 FILE: context.md
 PATCH:
-  项目概述: [从用户描述中提取，一句话概括做什么]   [静默]
-  技术栈: [从问题内容推断，无法推断则留空]   [静默]
-  topic_stack.active.id: topic_001   [静默]
-  topic_stack.active.scene_domain: [Q1 识别值]   [静默]
-  topic_stack.active.task_type: [Q1 识别值]   [静默]
-  topic_stack.active.clarity: [Q1 识别值]   [静默]
+  项目概述: [从用户描述中提取，一句话概括做什么]
+  技术栈: [从问题内容推断，无法推断则留空]
+  topic_stack.active.id: topic_001
+  topic_stack.active.scene_domain: [Q1 识别值]
+  topic_stack.active.task_type: [Q1 识别值]
+  topic_stack.active.clarity: [Q1 识别值]
 ```
 此后同项目判断依赖此处写入的项目概述和技术栈。
 
@@ -95,11 +114,11 @@ progress.md 读取说明：
   - ## Task State Machine 部分：工程执行阶段读取任务状态
   - ## Stage History 部分：追溯阶段推进轨迹（此处为执行维度轨迹；context.md 的 stage_history 为话题维度轨迹，两者分工不同，分别维护）
 
-bugs.md 写入时机（由 engineering-mode 规则触发，此处为索引）：
-  Impact Analysis 风险等级=高  → 执行前静默写入（engineering-mode 规则三 / 规则十一）
-  Verification 新增风险 ≠ "无"  → 执行后静默写入（engineering-mode 规则七 / 规则十一）
-  用户或 Agent 明确识别到新风险/开放问题 → 即时静默写入
-所有 bugs.md 写入均写入 Memory Diff 的 `[静默]` 条目，不向用户展示。
+bugs.md 写入时机（由 output-engine 规则触发，此处为索引）：
+  Impact Analysis 风险等级=高  → 执行前写入（output-engine 规则三 / 规则十一）
+  Verification 新增风险 ≠ "无"  → 执行后写入（output-engine 规则七 / 规则十一）
+  用户或 Agent 明确识别到新风险/开放问题 → 即时写入
+写入时必须输出标注：更新Memory · bugs.md：[操作摘要]
 
 ### 进度推动
 每阶段完成后主动列出 1-2 个建议下一步。
@@ -145,7 +164,24 @@ Step 4 · 路由分发
   → output-engine 内部调用 skill: topic-memory 处理状态变化
 ```
 
-**门禁拦截输出格式：见 output-engine 的「阶段锁定下的输出行为」节，此处不重复定义，以 output-engine 为准。**
+**门禁拦截输出格式**：
+```
+⚠️ 阶段门禁未通过
+
+当前阶段：[scene] × [stage]
+未完成物料（P0）：
+  □ [物料1]
+  □ [物料2]
+
+请先完成以上产出，再进入下一阶段。
+
+────────────────────────────────
+如需强制跳过，请回复：跳过阶段
+否则请继续完成当前阶段的 P0 物料。
+────────────────────────────────
+
+⚠️ 注意：在收到「跳过阶段」的明确指令之前，禁止输出任何下一阶段的内容。
+```
 
 **简单问题判断标准（满足任一即为简单）：**
 - 纯闲聊 / 问候
@@ -200,9 +236,7 @@ Step 4 · 路由分发
 - 权限、范围、产品决策或风险不明确时，停止并询问
 - 禁止因「回答已经够长」中途截断
 - 禁止用「如需了解更多请追问」替代应直接给出的内容
-- Memory 更新显示规则：
-  - topic-memory 话题状态变化（借道归位 / 阶段推进 / 话题切换）→ 写入 Memory Diff，非 `[静默]`，用户可见
-  - bugs.md / progress.md / context.md 的数据写入 → 写入 Memory Diff，标注 `[静默]`，脚本写回，用户界面折叠
+- Memory 每次更新前必须输出可见标注：`更新Memory · [文件名]：[操作摘要]`
 
 ---
 
