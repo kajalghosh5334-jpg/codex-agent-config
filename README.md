@@ -11,7 +11,12 @@
 将 `skills/` 目录下的 5 个 SKILL.md 复制到 Codex 的 skills 目录：
 
 ```bash
-cp skills/*_SKILL.md ~/.codex/skills/
+# 每个 skill 是一个独立子目录，复制后 Codex 才能识别
+cp -r skills/output-engine ~/.codex/skills/
+cp -r skills/engineering-mode ~/.codex/skills/
+cp -r skills/topic-memory ~/.codex/skills/
+cp -r skills/v-channel-visualizer ~/.codex/skills/
+cp -r skills/render-datamodel ~/.codex/skills/
 ```
 
 注意：需要根据文件名去掉 `_SKILL` 后缀或保持原样，取决于你的 Codex 配置。参考你已有的 skill 命名规则。
