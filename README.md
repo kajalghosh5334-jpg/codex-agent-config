@@ -89,18 +89,59 @@ Step 4 · 路由 → output-engine 五问流程
 
 ---
 
-## 环境依赖
+## V 通道视觉渲染所需环境
 
-### VS Code Mermaid 插件（视觉渲染必备）
-V 通道的 Mermaid 图表输出需要在 VS Code 中安装 Mermaid 预览插件才能正常渲染：
+V 通道通过 Mermaid 代码块（```` ```mermaid ````）输出图表，依赖 VS Code Markdown 预览渲染。需完成以下两步配置：
 
-推荐的 VS Code 插件：
-- [Markdown Preview Mermaid Support](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid) — 让 VS Code 内置 Markdown 预览支持 Mermaid
-- 或 [Mermaid Editor](https://marketplace.visualstudio.com/items?itemName=tomoyukim.vscode-mermaid-editor) — 专用 Mermaid 编辑器
+### 1. 安装 VS Code 插件
 
-安装方式：
-```
+```bash
 code --install-extension bierner.markdown-mermaid
 ```
 
-如果不安装，Mermaid 代码块将显示为原始文本，无法渲染为图表。
+这会让 VS Code 内置 Markdown 预览支持 Mermaid 语法渲染。
+
+> 备选：`tomoyukim.vscode-mermaid-editor` 提供专用 Mermaid 编辑器面板。
+
+### 2. 配置 VS Code 设置（统一色系）
+
+打开 VS Code 设置 JSON（`Cmd+Shift+P` → `Preferences: Open User Settings (JSON)`），添加：
+
+```json
+{
+  "markdown-mermaid.customArgs": {
+    "theme": "base",
+    "themeVariables": {
+      "darkMode": false,
+      "background": "#FBF9F6",
+      "primaryColor": "#FFFFFF",
+      "primaryTextColor": "#191919",
+      "primaryBorderColor": "#D1C7BD",
+      "lineColor": "#877B6F",
+      "secondaryColor": "#F3ECE4",
+      "tertiaryColor": "#FBF9F6",
+      "attributeBackgroundColor": "#FBF9F6",
+      "attributeTextColor": "#665E56",
+      "entityBackgroundColor": "#FFFFFF",
+      "entityBorderColor": "#CC5A37",
+      "entityLabelColor": "#192F22"
+    }
+  }
+}
+```
+
+> 此色系与 AGENTS.md 中 Mermaid `%%{init:...}%%` 头保持一致，确保图表在 VS Code 预览中的颜色风格统一。
+
+### 输出规则说明
+
+- **输出形式**：Agent 通过标准 Markdown 代码块（```` ```mermaid ````）输出图表
+- **色系协同**：每张图顶部强制注入 `%%{init:...}%%` 头（由 v-channel-visualizer 控制）+ VS Code 全局 `markdown-mermaid.customArgs`（用户手动设置）双重保障
+- **防溢出**：单图 ≤ 8 节点，纵向 ≤ 4 层，超限自动拆图
+- **预览方式**：在 Codex 对话输出后，点击 VS Code 右上角 Markdown 预览按钮（`Cmd+Shift+V`）查看渲染后的图表
+- 未配置以上两步时，Mermaid 代码块将显示为原始文本，图表不可见
+
+## 注意事项
+
+- 这套配置是为 Codex CLI 设计的，部分 skill 引用需要你本地已安装对应 skill
+- `skill_index.md` 中的 skill 列表是我个人的配置，你需要根据 `~/.codex/skills/` 实际内容调整
+- 首次使用请确保 `agent_memory/` 目录在项目根目录存在（AGENTS.md 会自动提示创建）
